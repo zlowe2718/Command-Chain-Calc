@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'np_cards.dart';
+import 'skills.dart';
 
 void main() {
   runApp(const MyApp());
@@ -188,6 +189,9 @@ class _CommandChainState extends State<CommandChain> {
               ),
               for (Widget npWidget in _buildNpWidgets(_servantData)) 
                 npWidget,
+              Skills(servant: _servantData, skillnum: 1),
+              Skills(servant: _servantData, skillnum: 2),
+              Skills(servant: _servantData, skillnum: 3),
             ],
           ),
         ),
