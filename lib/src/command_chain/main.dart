@@ -35,7 +35,7 @@ class CommandChain extends StatefulWidget {
 
 class _CommandChainState extends State<CommandChain> {
   int level = 1;
-  bool _validate = false;
+  bool _validate = true;
   dynamic _data = "";
   String servantName = "";
   dynamic _servantData = "";
@@ -45,27 +45,15 @@ class _CommandChainState extends State<CommandChain> {
   Future<void> readJson() async {
     final String response = await rootBundle.loadString('lib/src/common/servant_data_large.json');
     final data = await json.decode(response);
+    final servantData = getServant("Altria Pendragon", data);
     setState(() {
       _data = data;
+      _servantData = servantData;
     });
   }
 
   void initControllers() {
     _controllers = {"servant_name": TextEditingController(text: "Altria Pendragon"), "level": TextEditingController(text: "1"), "attack": TextEditingController(text: "1734")};
-  }
-
-  String servantPic(servantController, data) {
-    debugPrint(servantController.text);
-    if (data == "") {
-      return "https://static.atlasacademy.io/NA/Faces/f_1001000.png";
-    }
-    for (var servant in data) {
-      
-      if (servant["name"] == servantController.text) {
-        return servant["extraAssets"]["faces"]["ascension"]["1"];
-      }
-    }
-    return "https://static.atlasacademy.io/NA/Faces/f_1001000.png";
   }
 
   dynamic getServant(text, data) {
@@ -82,7 +70,7 @@ class _CommandChainState extends State<CommandChain> {
     if (servantData != "") {
       level = int.tryParse(controllers["level"]?.text??'1') ?? 0;
       if (level >=1 && level <= 120) {
-        controllers["attack"]?.text = servantData["atkGrowth"][level].toString();
+        controllers["attack"]?.text = servantData["atkGrowth"][level - 1].toString();
       }
     }
   }
@@ -97,7 +85,20 @@ class _CommandChainState extends State<CommandChain> {
 
   @override
   Widget build(BuildContext context) {
-
+    if (_data == "") {
+      readJson();
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Command Chain Calculator')
+        ),  
+        body: const Center(
+          child: Text(
+            "Loading Data...",
+            style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.blue),
+          )
+        )
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Command Chain Calculator'),
@@ -115,7 +116,7 @@ class _CommandChainState extends State<CommandChain> {
                 margin: const EdgeInsets.all(10),
                 child: Row(
                   children:  [
-                    Image.network(servantPic(_controllers["servant_name"], _data), fit: BoxFit.contain),
+                    Image.network(_servantData["extraAssets"]["faces"]["ascension"]["1"], fit: BoxFit.contain),
                     const SizedBox(width: 20),
                     Flexible(
                       child:TextField(
@@ -125,10 +126,13 @@ class _CommandChainState extends State<CommandChain> {
                         ),
                         controller: _controllers["servant_name"],
                         onSubmitted: (text) {
-                          setState(() {
-                            _servantData = getServant(text, _data);
-                            updateDataFields(_servantData, _controllers);
-                          });
+                          var validServant = getServant(text, _data);
+                          if (validServant != "") {
+                            setState(() {
+                              _servantData = validServant;
+                              updateDataFields(_servantData, _controllers);
+                            });
+                          }
                         },
                       ),
                     ),
@@ -164,7 +168,9 @@ class _CommandChainState extends State<CommandChain> {
                           return null;
                         },
                         onFieldSubmitted: (value) {
+                          debugPrint(_validate.toString());
                           if (_validate) {
+                            debugPrint(value);
                             _controllers["attack"]?.text = _servantData["atkGrowth"][int.parse(value) - 1].toString();
                           }
                         },
@@ -202,61 +208,6 @@ class _CommandChainState extends State<CommandChain> {
   List<Widget> _buildNpWidgets(servant) {
     List<Widget> npWidgets = [];
     int npNum = 1;
-
-    if (servant == "") {
-      npWidgets.add(
-        NpWidget(servant: servant, np: "", npNum: 1)
-      );
-
-      npWidgets.add(
-        Container(
-          height: 100,
-          margin: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey, width: 1),
-            color: Colors.red,
-          ),
-          child: Row(
-            children: [
-              Container(
-                height: 100,
-                width: 80,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Image.asset("lib/src/common/npbustercard.png", width: 63),
-                    Image.network("https://static.atlasacademy.io/NA/Servants/Commands/100100/card_servant_1.png"),
-                    Positioned(
-                      top: 49,
-                      left: 8,
-                      child:Image.asset("lib/src/common/busterIcon.png", width: 69),
-                    ),
-                    Positioned(
-                      top: 51,
-                      child: Image.network("https://static.atlasacademy.io/NA/Servants/Commands/100100/card_servant_np.png", width: 80),
-                    ),
-                  ],
-                )
-              ),
-              Expanded(
-                child: Container(
-                  alignment: Alignment.centerLeft,
-                  child: const Text(
-                    "Excalibur (Upgrade 1)",
-                    style: TextStyle(
-                      fontSize: 25, 
-                      fontWeight: FontWeight.bold,
-                    )
-                  )
-                )
-              ),
-            ]
-          )
-        )
-      );
-
-      return npWidgets;
-    }
 
     for (var np in servant["noblePhantasms"]) {
       npWidgets.add(
