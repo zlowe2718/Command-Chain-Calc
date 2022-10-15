@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'skill_button.dart';
+import 'servant.dart';
 
 class Skills extends StatefulWidget {
   final int skillnum;
@@ -29,17 +31,18 @@ class _SkillsState extends State<Skills> {
 
   @override
   Widget build(BuildContext context) {
+    var servantObject = Provider.of<Servant>(context);
     skills = getSkills(widget.servant, widget.skillnum);
     if (skillButtonBool.isEmpty) {
       for (var _ in skills) {
         skillButtonBool.add(false);
       }
     }
-    return _buildSkillWidget(widget.servant, skills, skillButtonBool);
+    return _buildSkillWidget(servantObject, widget.servant, skills);
   }
 
-  Widget _buildSkillWidget(servant, skills, skillButtonBool) {
-
+  Widget _buildSkillWidget(servantObject, servant, skills) {
+    skillButtonBool = servantObject.skillSelected[widget.skillnum.toString()];
     return Container(
       color: const Color.fromARGB(255, 221, 221, 221),
       margin: const EdgeInsets.all(10),
