@@ -1,11 +1,18 @@
+import 'package:fgo_app/src/command_chain/servant.dart';
 import 'package:flutter/material.dart';
-import 'dart:convert';
+import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
+import 'dart:convert';
 import 'np_cards.dart';
 import 'skills.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => Servant(),
+      child: const MyApp()
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -15,7 +22,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Command Chain Calculator',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -23,8 +30,6 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-
 
 class CommandChain extends StatefulWidget {
   const CommandChain({super.key});
@@ -36,34 +41,19 @@ class CommandChain extends StatefulWidget {
 class _CommandChainState extends State<CommandChain> {
   int level = 1;
   bool _validate = true;
-  dynamic _data = "";
+  late Future<dynamic> _data;
   String servantName = "";
-  dynamic _servantData = "";
-  Map<String, TextEditingController> _controllers = Map();
+  Map<String, TextEditingController> _controllers = {};
   Color npColor = Colors.red;
 
-  Future<void> readJson() async {
+  Future<dynamic> readJson() async {
     final String response = await rootBundle.loadString('lib/src/common/servant_data_large.json');
-    final data = await json.decode(response);
-    final servantData = getServant("Altria Pendragon", data);
-    setState(() {
-      _data = data;
-      _servantData = servantData;
-    });
+    dynamic data = await json.decode(response);
+    return data;
   }
 
   void initControllers() {
     _controllers = {"servant_name": TextEditingController(text: "Altria Pendragon"), "level": TextEditingController(text: "1"), "attack": TextEditingController(text: "1734")};
-  }
-
-  dynamic getServant(text, data) {
-    for (var servant in data) {
-      if (servant["name"] == text) {
-        debugPrint(servant["name"]);
-        return servant;
-      }
-    }
-    return "";
   }
 
   void updateDataFields(servantData, controllers) {
@@ -77,131 +67,137 @@ class _CommandChainState extends State<CommandChain> {
 
   @override
   void initState() {
-    readJson();
-    initControllers();
     super.initState();
+    _data = readJson();
+    initControllers();
   }
 
 
   @override
   Widget build(BuildContext context) {
-    if (_data == "") {
-      readJson();
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Command Chain Calculator')
-        ),  
-        body: const Center(
-          child: Text(
-            "Loading Data...",
-            style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.blue),
-          )
-        )
-      );
-    }
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Command Chain Calculator'),
-      ),
-      body: Align(
-        child: Container(
-          width: .9 * MediaQuery.of(context).size.width,
-          margin: const EdgeInsets.all(10),
-          alignment: Alignment.center,
-          child: ListView( 
-            children: [
-              Container(
-                height: 60,
-                alignment: Alignment.center,
+    var servant = Provider.of<Servant>(context);
+    return FutureBuilder(
+      future: _data,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Command Chain Calculator')
+            ),  
+            body: const Center(
+              child: Text(
+                "Loading Data...",
+                style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.blue),
+              )
+            )
+          );
+        } else {
+          if (servant.name == "") {
+            servant.initServant(snapshot.data);
+          }
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Command Chain Calculator'),
+            ),
+            body: Align(
+              child: Container(
+                width: .9 * MediaQuery.of(context).size.width,
                 margin: const EdgeInsets.all(10),
-                child: Row(
-                  children:  [
-                    Image.network(_servantData["extraAssets"]["faces"]["ascension"]["1"], fit: BoxFit.contain),
-                    const SizedBox(width: 20),
-                    Flexible(
-                      child:TextField(
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: 'Servant Name',
-                        ),
-                        controller: _controllers["servant_name"],
-                        onSubmitted: (text) {
-                          var validServant = getServant(text, _data);
-                          if (validServant != "") {
-                            setState(() {
-                              _servantData = validServant;
-                              updateDataFields(_servantData, _controllers);
-                            });
-                          }
-                        },
+                alignment: Alignment.center,
+                child: ListView( 
+                  children: [
+                    Container(
+                      height: 60,
+                      alignment: Alignment.center,
+                      margin: const EdgeInsets.all(10),
+                      child: Row(
+                        children:  [
+                          Image.network(servant.imageUrl, fit: BoxFit.contain),
+                          const SizedBox(width: 20),
+                          Flexible(
+                            child:TextField(
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                labelText: 'Servant Name',
+                              ),
+                              controller: _controllers["servant_name"],
+                              onSubmitted: (text) {
+                                var validServant = servant.getServant(text);
+                                if (validServant != "") {
+                                  level = int.parse(_controllers["level"]!.text);
+                                  servant.updateServant(validServant, level);
+                                  _controllers["attack"]!.text = servant.attack.toString();
+                                }
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                    Container(
+                      alignment: Alignment.center,
+                      margin: const EdgeInsets.all(10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          const Text(
+                            'Lvl',
+                            style: TextStyle(fontSize: 20),
+                          ),
+                          Container(
+                            width: MediaQuery.of(context).size.width / 4,
+                            child: TextFormField(
+                              autovalidateMode: AutovalidateMode.onUserInteraction,
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                labelText: 'Lvl',
+                              ),
+                              controller: _controllers["level"],
+                              validator: (value) {
+                                level = int.tryParse(value??'1') ?? 0;
+                                if (level < 1 || level > 120) {
+                                  _validate = false;
+                                  return 'Please enter a number between 1 and 120';
+                                }
+                                _validate = true;
+                                return null;
+                              },
+                              onFieldSubmitted: (value) {
+                                if (_validate) {
+                                  _controllers["attack"]?.text = servant.servantData["atkGrowth"][int.parse(value) - 1].toString();
+                                }
+                              },
+                            ),
+                          ),
+                          const Text(
+                            'Attack',
+                            style: TextStyle(fontSize: 20),
+                            ),
+                          Container(
+                            width: MediaQuery.of(context).size.width / 4,
+                            child: TextField(
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                labelText: 'Attack',
+                              ),
+                              controller: _controllers["attack"],
+                            ),
+                          ),
+                        ],
+                      )
+                    ),
+                    for (Widget npWidget in _buildNpWidgets(servant.servantData)) 
+                      npWidget,
+                    for (int i = 1; i <=3; i++) ...[
+                      Skills(servant: servant.servantData, skillnum: i),
+                    ]
                   ],
                 ),
-              ),
-              Container(
-                alignment: Alignment.center,
-                margin: const EdgeInsets.all(10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    const Text(
-                      'Lvl',
-                      style: TextStyle(fontSize: 20),
-                    ),
-                    Container(
-                      width: MediaQuery.of(context).size.width / 4,
-                      child: TextFormField(
-                        autovalidateMode: AutovalidateMode.onUserInteraction,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: 'Lvl',
-                        ),
-                        controller: _controllers["level"],
-                        validator: (value) {
-                          level = int.tryParse(value??'1') ?? 0;
-                          if (level < 1 || level > 120) {
-                            _validate = false;
-                            return 'Please enter a number between 1 and 120';
-                          }
-                          _validate = true;
-                          return null;
-                        },
-                        onFieldSubmitted: (value) {
-                          debugPrint(_validate.toString());
-                          if (_validate) {
-                            debugPrint(value);
-                            _controllers["attack"]?.text = _servantData["atkGrowth"][int.parse(value) - 1].toString();
-                          }
-                        },
-                      ),
-                    ),
-                    const Text(
-                      'Attack',
-                      style: TextStyle(fontSize: 20),
-                      ),
-                    Container(
-                      width: MediaQuery.of(context).size.width / 4,
-                      child: TextField(
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: 'Attack',
-                        ),
-                        controller: _controllers["attack"],
-                      ),
-                    ),
-                  ],
-                )
-              ),
-              for (Widget npWidget in _buildNpWidgets(_servantData)) 
-                npWidget,
-              Skills(servant: _servantData, skillnum: 1),
-              Skills(servant: _servantData, skillnum: 2),
-              Skills(servant: _servantData, skillnum: 3),
-            ],
-          ),
-        ),
-      ),
+              ), 
+            ),
+          );
+        }
+      }
     );
   }
 
